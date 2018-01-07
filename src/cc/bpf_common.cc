@@ -17,6 +17,9 @@
 #include "bpf_module.h"
 
 extern "C" {
+bpf_create_map_cb_t bpf_create_map_cb;
+void * bpf_create_map_cookie;
+
 void * bpf_module_create_b(const char *filename, const char *proto_filename, unsigned flags) {
   auto mod = new ebpf::BPFModule(flags);
   if (mod->load_b(filename, proto_filename) != 0) {
@@ -26,7 +29,12 @@ void * bpf_module_create_b(const char *filename, const char *proto_filename, uns
   return mod;
 }
 
-void * bpf_module_create_c(const char *filename, unsigned flags, const char *cflags[], int ncflags) {
+void * bpf_module_create_c(const char *filename, unsigned flags, const char *cflags[], int ncflags,
+                           bpf_create_map_cb_t map_cb, void *map_cb_cookie) {
+
+  bpf_create_map_cb = map_cb;
+  bpf_create_map_cookie = map_cb_cookie;
+
   auto mod = new ebpf::BPFModule(flags);
   if (mod->load_c(filename, cflags, ncflags) != 0) {
     delete mod;
@@ -35,7 +43,12 @@ void * bpf_module_create_c(const char *filename, unsigned flags, const char *cfl
   return mod;
 }
 
-void * bpf_module_create_c_from_string(const char *text, unsigned flags, const char *cflags[], int ncflags) {
+void * bpf_module_create_c_from_string(const char *text, unsigned flags, const char *cflags[], int ncflags,
+                           bpf_create_map_cb_t map_cb, void *map_cb_cookie) {
+
+  bpf_create_map_cb = map_cb;
+  bpf_create_map_cookie = map_cb_cookie;
+
   auto mod = new ebpf::BPFModule(flags);
   if (mod->load_string(text, cflags, ncflags) != 0) {
     delete mod;

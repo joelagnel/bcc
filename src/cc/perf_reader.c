@@ -274,7 +274,10 @@ int perf_reader_poll(int num_readers, struct perf_reader **readers, int timeout)
   struct pollfd pfds[num_readers];
   int i;
 
+  memset(pfds, num_readers * sizeof(struct pollfd), 0);
   for (i = 0; i <num_readers; ++i) {
+	if (!readers[i])
+		continue;
     pfds[i].fd = readers[i]->fd;
     pfds[i].events = POLLIN;
   }

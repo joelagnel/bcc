@@ -24,9 +24,12 @@
 extern "C" {
 #endif
 
+typedef void (*bpf_create_map_cb_t)(void *cb_cookie, void *data);
 void * bpf_module_create_b(const char *filename, const char *proto_filename, unsigned flags);
-void * bpf_module_create_c(const char *filename, unsigned flags, const char *cflags[], int ncflags);
-void * bpf_module_create_c_from_string(const char *text, unsigned flags, const char *cflags[], int ncflags);
+void * bpf_module_create_c(const char *filename, unsigned flags, const char *cflags[], int ncflags,
+						   bpf_create_map_cb_t map_cb, void *map_cb_cookie);
+void * bpf_module_create_c_from_string(const char *text, unsigned flags, const char *cflags[],
+							int ncflags, bpf_create_map_cb_t map_cb, void *map_cb_cookie);
 void bpf_module_destroy(void *program);
 char * bpf_module_license(void *program);
 unsigned bpf_module_kern_version(void *program);
