@@ -47,16 +47,33 @@ const char *calling_conv_regs_s390x[] = {"gprs[2]", "gprs[3]", "gprs[4]",
 
 const char *calling_conv_regs_arm64[] = {"regs[0]", "regs[1]", "regs[2]",
                                        "regs[3]", "regs[4]", "regs[5]"};
+
+const char **get_call_conv(void) {
+  const char *archenv = ::getenv("ARCH");
+
+  if (!archenv) {
 // todo: support more archs
-#if defined(__powerpc__)
-const char **calling_conv_regs = calling_conv_regs_ppc;
+#if defined(__powerpc64__)
+    return calling_conv_regs_ppc;
 #elif defined(__s390x__)
-const char **calling_conv_regs = calling_conv_regs_s390x;
+    return calling_conv_regs_s390x;
 #elif defined(__aarch64__)
-const char **calling_conv_regs = calling_conv_regs_arm64;
+    return calling_conv_regs_arm64;
 #else
-const char **calling_conv_regs = calling_conv_regs_x86;
+    return calling_conv_regs_x86;
 #endif
+  } else {
+    if (!strcmp(archenv, "powerpc")) {
+      return calling_conv_regs_ppc;
+    } else if (!strcmp(archenv, "s390x")) {
+      return calling_conv_regs_s390x;
+    } else if (!strcmp(archenv, "arm64")) {
+	  return calling_conv_regs_arm64;
+    } else {
+      return calling_conv_regs_x86;
+    }
+  }
+}
 
 using std::map;
 using std::move;
@@ -256,6 +273,8 @@ BTypeVisitor::BTypeVisitor(ASTContext &C, BFrontendAction &fe)
     : C(C), diag_(C.getDiagnostics()), fe_(fe), rewriter_(fe.rewriter()), out_(llvm::errs()) {}
 
 bool BTypeVisitor::VisitFunctionDecl(FunctionDecl *D) {
+  const char **calling_conv_regs = get_call_conv();
+
   // put each non-static non-inline function decl in its own section, to be
   // extracted by the MemoryManager
   auto real_start_loc = rewriter_.getSourceMgr().getFileLoc(D->getLocStart());

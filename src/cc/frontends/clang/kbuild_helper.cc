@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <ftw.h>
 #include "kbuild_helper.h"
 
@@ -34,6 +36,8 @@ int KBuildHelper::get_flags(const char *uname_machine, vector<string> *cflags) {
   //               -e s/aarch64.*/arm64/
 
   string arch = uname_machine;
+  const char *archenv;
+
   if (!strncmp(uname_machine, "x86_64", 6)) {
     arch = "x86";
   } else if (uname_machine[0] == 'i' && !strncmp(&uname_machine[2], "86", 2)) {
@@ -54,6 +58,15 @@ int KBuildHelper::get_flags(const char *uname_machine, vector<string> *cflags) {
     arch = "sh";
   } else if (!strncmp(uname_machine, "aarch64", 7)) {
     arch = "arm64";
+  }
+
+  // If ARCH env is defined, use it over uname
+  archenv = getenv("ARCH");
+
+  if (archenv) {
+    if (getenv("BCC_KBUILD_DEBUG"))
+        printf("Using archiecture %s from env instead of uname\n", archenv);
+    arch = string(archenv);
   }
 
   cflags->push_back("-nostdinc");
@@ -87,6 +100,11 @@ int KBuildHelper::get_flags(const char *uname_machine, vector<string> *cflags) {
   cflags->push_back("-D__HAVE_BUILTIN_BSWAP16__");
   cflags->push_back("-D__HAVE_BUILTIN_BSWAP32__");
   cflags->push_back("-D__HAVE_BUILTIN_BSWAP64__");
+
+  // If ARCH env variable is set, pass this along.
+  if (archenv)
+	cflags->push_back("-D__TARGET_ARCH_" + arch);
+
   cflags->push_back("-Wno-unused-value");
   cflags->push_back("-Wno-pointer-sign");
   cflags->push_back("-fno-stack-protector");

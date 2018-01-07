@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <ftw.h>
 #include <map>
+#include <iostream>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string>
@@ -108,11 +109,26 @@ int ClangLoader::parse(unique_ptr<llvm::Module> *mod, TableStorage &ts,
   unique_ptr<llvm::MemoryBuffer> main_buf;
   struct utsname un;
   uname(&un);
-  string kdir = string(KERNEL_MODULES_DIR) + "/" + un.release;
-  auto kernel_path_info = get_kernel_path_info (kdir);
+  string kdir, kpath;
+  const char *kpath_env = ::getenv("BCC_KERNEL_SOURCE");
+  bool has_kpath_source = false;
+
+  if (kpath_env) {
+    kpath = string(kpath_env);
+  } else {
+    kdir = string(KERNEL_MODULES_DIR) + "/" + un.release;
+    auto kernel_path_info = get_kernel_path_info (kdir);
+    has_kpath_source = kernel_path_info.first;
+    kpath = kdir + "/" + kernel_path_info.second;
+  }
+
+
+  if (getenv("BCC_KBUILD_DEBUG"))
+    printf("Using kernel directory at: %s\n", kpath.c_str());
 
   // clang needs to run inside the kernel dir
-  DirStack dstack(kdir + "/" + kernel_path_info.second);
+  DirStack dstack(kpath);
+
   if (!dstack.ok())
     return -1;
 
@@ -143,7 +159,9 @@ int ClangLoader::parse(unique_ptr<llvm::Module> *mod, TableStorage &ts,
                                    "-fno-asynchronous-unwind-tables",
                                    "-x", "c", "-c", abs_file.c_str()});
 
-  KBuildHelper kbuild_helper(kdir, kernel_path_info.first);
+
+  KBuildHelper kbuild_helper(kpath_env ? kpath : kdir, has_kpath_source);
+
   vector<string> kflags;
   if (kbuild_helper.get_flags(un.machine, &kflags))
     return -1;
@@ -186,6 +204,40 @@ int ClangLoader::parse(unique_ptr<llvm::Module> *mod, TableStorage &ts,
   return 0;
 }
 
+string get_clang_target(void) {
+  const char *archenv = ::getenv("ARCH");
+
+  if (!archenv) {
+#if defined(__powerpc64__)
+#if defined(_CALL_ELF) && _CALL_ELF == 2
+    return "powerpc64le-unknown-linux-gnu";
+#else
+    return "powerpc64-unknown-linux-gnu";
+#endif
+#elif defined(__s390x__)
+    return "s390x-ibm-linux-gnu";
+#elif defined(__aarch64__)
+    return "aarch64-unknown-linux-gnu";
+#else
+    return "x86_64-unknown-linux-gnu";
+#endif
+  } else {
+    if (!strcmp(archenv, "powerpc")) {
+#if defined(_CALL_ELF) && _CALL_ELF == 2
+      return "powerpc64le-unknown-linux-gnu";
+#else
+      return "powerpc64-unknown-linux-gnu";
+#endif
+    } else if (!strcmp(archenv, "s390x")) {
+      return "s390x-ibm-linux-gnu";
+    } else if (!strcmp(archenv, "arm64")) {
+	  return "aarch64-unknown-linux-gnu";
+    } else {
+      return "x86_64-unknown-linux-gnu";
+    }
+  }
+}
+
 int ClangLoader::do_compile(unique_ptr<llvm::Module> *mod, TableStorage &ts,
                             bool in_memory,
                             const vector<const char *> &flags_cstr_in,
@@ -211,20 +263,19 @@ int ClangLoader::do_compile(unique_ptr<llvm::Module> *mod, TableStorage &ts,
   IntrusiveRefCntPtr<DiagnosticIDs> DiagID(new DiagnosticIDs());
   DiagnosticsEngine diags(DiagID, &*diag_opts, diag_client);
 
+  if (getenv("BCC_KBUILD_DEBUG")) {
+    printf("Kernel flags for the build are set to:\n");
+    for (const auto& value : flags_cstr) {
+        std::cout << value << '\n';
+    }
+    std::cout << "\n";
+  }
+
   // set up the command line argument wrapper
-#if defined(__powerpc64__)
-#if defined(_CALL_ELF) && _CALL_ELF == 2
-  driver::Driver drv("", "powerpc64le-unknown-linux-gnu", diags);
-#else
-  driver::Driver drv("", "powerpc64-unknown-linux-gnu", diags);
-#endif
-#elif defined(__s390x__)
-  driver::Driver drv("", "s390x-ibm-linux-gnu", diags);
-#elif defined(__aarch64__)
-  driver::Driver drv("", "aarch64-unknown-linux-gnu", diags);
-#else
-  driver::Driver drv("", "x86_64-unknown-linux-gnu", diags);
-#endif
+
+  string target_triple = get_clang_target();
+  driver::Driver drv("", target_triple, diags);
+
   drv.setTitle("bcc-clang-driver");
   drv.setCheckInputsExist(false);
 
