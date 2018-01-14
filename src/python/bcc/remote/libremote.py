@@ -33,6 +33,9 @@ class LibRemote(object):
         # Cache of maps, format: map_cache[map_fd] = { 'key1': 'value1', .. }
         self.nkey_cache = {}
         self.map_cache = {}
+        # Has the map been fully dumped once before the last delete/clear ?
+        # format: { map_fd: [True|False] }
+        self.map_dumped = {}
 
         # Create the remote connection
         self.remote = cls(remote_arg)
@@ -59,6 +62,11 @@ class LibRemote(object):
             return (-1, [])
 
         return (int(m.group(1)), ret)
+
+    def _invalidate_map_cache(self, map_fd):
+        self.map_cache[map_fd] = {}
+        self.nkey_cache[map_fd] = {}
+        self.map_dumped[map_fd] = {}
 
     def available_filter_functions(self, tracefs):
         cmd = "GET_AVAIL_FILTER_FUNCS {}".format(tracefs)
@@ -131,6 +139,12 @@ class LibRemote(object):
             if kstr in self.map_cache[map_fd]:
                 return (0, [self.map_cache[map_fd][kstr]])
 
+        # Some maps like StackTrace may not trigger a get_first_key before lookup
+        # since the keys can be obtained through other maps (like counts in offcputime)
+        # Force a get_first_key so that the entire map is cached.
+        if map_fd not in self.map_dumped or self.map_dumped[map_fd] == False:
+            self.bpf_get_first_key(map_fd, klen, llen, dump_all=True)
+
         cmd = "BPF_LOOKUP_ELEM {} {} {} {}".format(map_fd, kstr, klen, llen)
         ret = self._remote_send_command(cmd)
         return ret
@@ -140,10 +154,11 @@ class LibRemote(object):
         ret = self._remote_send_command(cmd)
         return ret[0]
 
-    def bpf_get_first_key(self, map_fd, klen, vlen):
-        cmd = "BPF_GET_FIRST_KEY {} {} {}".format(map_fd, klen, vlen)
+    def bpf_get_first_key(self, map_fd, klen, vlen, dump_all=True):
+        cmd = "BPF_GET_FIRST_KEY {} {} {} {}".format(map_fd, klen, vlen, 1 if dump_all else 0)
         ret = self._remote_send_command(cmd)
-        if ret[0] < 0:
+
+        if not dump_all or ret[0] < 0:
             return ret
 
         # bpfd will dump the entire map on first get key so it can be
@@ -163,6 +178,8 @@ class LibRemote(object):
                 self.nkey_cache[map_fd][prev_key] = key
             prev_key = key
 
+        self.map_dumped[map_fd] = True
+
         return (0, [first_key])
 
     def bpf_get_next_key(self, map_fd, kstr, klen):
@@ -177,16 +194,13 @@ class LibRemote(object):
     def bpf_delete_elem(self, map_fd, kstr, klen):
         cmd = "BPF_DELETE_ELEM {} {} {}".format(map_fd, kstr, klen)
         ret = self._remote_send_command(cmd)
-        # Invalidate cache for this map on any element delete
-        self.map_cache[map_fd] = {}
-        self.nkey_cache[map_fd] = {}
+        _invalidate_map_cache(map_fd)
         return ret[0]
 
     def bpf_clear_map(self, map_fd, klen):
         cmd = "BPF_CLEAR_MAP {} {}".format(map_fd, klen)
         ret = self._remote_send_command(cmd)
-        self.map_cache[map_fd] = {}
-        self.nkey_cache[map_fd] = {}
+        _invalidate_map_cache(map_fd)
         return ret[0]
 
     def perf_reader_poll(self, fd_callbacks, timeout):
