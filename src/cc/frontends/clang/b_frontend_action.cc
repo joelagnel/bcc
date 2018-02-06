@@ -30,6 +30,7 @@
 #include "common.h"
 #include "loader.h"
 #include "table_storage.h"
+#include "arch_helper.h"
 
 #include "libbpf.h"
 
@@ -48,31 +49,33 @@ const char *calling_conv_regs_s390x[] = {"gprs[2]", "gprs[3]", "gprs[4]",
 const char *calling_conv_regs_arm64[] = {"regs[0]", "regs[1]", "regs[2]",
                                        "regs[3]", "regs[4]", "regs[5]"};
 
-const char **get_call_conv(void) {
-  const char *archenv = ::getenv("ARCH");
+void *get_call_conv_cb(bcc_arch_t arch)
+{
+  const char **ret;
 
-  if (!archenv) {
-// todo: support more archs
-#if defined(__powerpc64__)
-    return calling_conv_regs_ppc;
-#elif defined(__s390x__)
-    return calling_conv_regs_s390x;
-#elif defined(__aarch64__)
-    return calling_conv_regs_arm64;
-#else
-    return calling_conv_regs_x86;
-#endif
-  } else {
-    if (!strcmp(archenv, "powerpc")) {
-      return calling_conv_regs_ppc;
-    } else if (!strcmp(archenv, "s390x")) {
-      return calling_conv_regs_s390x;
-    } else if (!strcmp(archenv, "arm64")) {
-	  return calling_conv_regs_arm64;
-    } else {
-      return calling_conv_regs_x86;
-    }
+  switch(arch) {
+    case BCC_ARCH_PPC:
+    case BCC_ARCH_PPC_LE:
+      ret = calling_conv_regs_ppc;
+      break;
+    case BCC_ARCH_S390X:
+      ret = calling_conv_regs_s390x;
+      break;
+    case BCC_ARCH_ARM64:
+      ret = calling_conv_regs_arm64;
+      break;
+    default:
+      ret = calling_conv_regs_x86;
   }
+
+  return (void *)ret;
+}
+
+const char **get_call_conv(void) {
+  const char **ret;
+
+  ret = (const char **)run_arch_callback(get_call_conv_cb);
+  return ret;
 }
 
 using std::map;
