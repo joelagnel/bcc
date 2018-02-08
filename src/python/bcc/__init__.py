@@ -608,6 +608,7 @@ class BPF(object):
         else:
             lib.perf_reader_free(self.open_kprobes[ev_name])
             res = lib.bpf_detach_kprobe(ev_name.encode("ascii"))
+
         if res < 0:
             raise Exception("Failed to detach BPF from kprobe")
         self._del_kprobe(ev_name)
@@ -952,6 +953,14 @@ class BPF(object):
         self._check_probe_quota(1)
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("p", path, addr, pid)
+
+        if self.libremote:
+            res = self.libremote.bpf_attach_uprobe(fn.fd, 0, ev_name, path, addr, pid)
+            if res < 0 :
+                raise Exception("Failed to attach BPF to uprobe")
+            self._add_uprobe(ev_name, None)
+            return self
+
         res = lib.bpf_attach_uprobe(fn.fd, 0, ev_name.encode("ascii"),
                 path.encode("ascii"), addr, pid, self._reader_cb_impl,
                 ct.cast(id(self), ct.py_object))
@@ -973,8 +982,13 @@ class BPF(object):
         ev_name = self._get_uprobe_evname("p", path, addr, pid)
         if ev_name not in self.open_uprobes:
             raise Exception("Uprobe %s is not attached" % ev_name)
-        lib.perf_reader_free(self.open_uprobes[ev_name])
-        res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
+
+        if self.libremote:
+            res = self.libremote.bpf_detach_uprobe(ev_name)
+        else:
+            lib.perf_reader_free(self.open_uprobes[ev_name])
+            res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
+
         if res < 0:
             raise Exception("Failed to detach BPF from uprobe")
         self._del_uprobe(ev_name)
@@ -1001,6 +1015,14 @@ class BPF(object):
         self._check_probe_quota(1)
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("r", path, addr, pid)
+
+        if self.libremote:
+            res = self.libremote.bpf_attach_uprobe(fn.fd, 1, ev_name, path, addr, pid)
+            if res < 0 :
+                raise Exception("Failed to attach BPF to uprobe")
+            self._add_uprobe(ev_name, None)
+            return self
+
         res = lib.bpf_attach_uprobe(fn.fd, 1, ev_name.encode("ascii"),
                 path.encode("ascii"), addr, pid, self._reader_cb_impl,
                 ct.cast(id(self), ct.py_object))
@@ -1022,8 +1044,13 @@ class BPF(object):
         ev_name = self._get_uprobe_evname("r", path, addr, pid)
         if ev_name not in self.open_uprobes:
             raise Exception("Uretprobe %s is not attached" % ev_name)
-        lib.perf_reader_free(self.open_uprobes[ev_name])
-        res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
+
+        if self.libremote:
+            res = self.libremote.bpf_detach_uprobe(ev_name)
+        else:
+            lib.perf_reader_free(self.open_uprobes[ev_name])
+            res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
+
         if res < 0:
             raise Exception("Failed to detach BPF from uprobe")
         self._del_uprobe(ev_name)
@@ -1250,8 +1277,11 @@ class BPF(object):
             if isinstance(self.tables[key], PerfEventArray):
                 del self.tables[key]
         for k, v in list(self.open_uprobes.items()):
-            lib.perf_reader_free(v)
-            lib.bpf_detach_uprobe(str(k).encode("ascii"))
+            if self.libremote:
+                res = self.libremote.bpf_detach_uprobe(k)
+            else:
+                lib.perf_reader_free(v)
+                lib.bpf_detach_uprobe(str(k).encode("ascii"))
             self._del_uprobe(k)
         for k, v in self.open_tracepoints.items():
             if v:
