@@ -952,6 +952,14 @@ class BPF(object):
         self._check_probe_quota(1)
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("p", path, addr, pid)
+
+        if self.libremote:
+            res = self.libremote.bpf_attach_uprobe(fn.fd, 0, ev_name, path, addr, pid)
+            if res < 0 :
+                raise Exception("Failed to attach BPF to uprobe")
+            self._add_uprobe(ev_name, None)
+            return self
+
         res = lib.bpf_attach_uprobe(fn.fd, 0, ev_name.encode("ascii"),
                 path.encode("ascii"), addr, pid, self._reader_cb_impl,
                 ct.cast(id(self), ct.py_object))
@@ -1001,6 +1009,14 @@ class BPF(object):
         self._check_probe_quota(1)
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("r", path, addr, pid)
+
+        if self.libremote:
+            res = self.libremote.bpf_attach_uprobe(fn.fd, 1, ev_name, path, addr, pid)
+            if res < 0 :
+                raise Exception("Failed to attach BPF to uprobe")
+            self._add_uprobe(ev_name, None)
+            return self
+
         res = lib.bpf_attach_uprobe(fn.fd, 1, ev_name.encode("ascii"),
                 path.encode("ascii"), addr, pid, self._reader_cb_impl,
                 ct.cast(id(self), ct.py_object))
