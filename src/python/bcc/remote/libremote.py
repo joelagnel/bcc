@@ -212,13 +212,13 @@ class LibRemote(object):
     def bpf_delete_elem(self, map_fd, kstr, klen):
         cmd = "BPF_DELETE_ELEM {} {} {}".format(map_fd, kstr, klen)
         ret = self._remote_send_command(cmd)
-        _invalidate_map_cache(map_fd)
+        self._invalidate_map_cache(map_fd)
         return ret[0]
 
     def bpf_clear_map(self, map_fd, klen):
         cmd = "BPF_CLEAR_MAP {} {}".format(map_fd, klen)
         ret = self._remote_send_command(cmd)
-        _invalidate_map_cache(map_fd)
+        self._invalidate_map_cache(map_fd)
         return ret[0]
 
     def perf_reader_poll(self, fd_callbacks, timeout):
