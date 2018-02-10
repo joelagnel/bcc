@@ -21,6 +21,7 @@ from bcc import BPF
 from time import sleep, strftime
 import signal
 import re
+import os
 from sys import argv
 
 # signal handler
@@ -138,16 +139,34 @@ while 1:
     counts = b.get_table("counts")
     for k, v in sorted(counts.items(), key=lambda counts: counts[1].value):
 
-        if re.match('mark_page_accessed', b.ksym(k.ip)) is not None:
+        ksym = b.ksym(k.ip)
+
+        if os.environ["BAD_HIKEY_DEMO_HACK"]:
+            badhh = True
+        else:
+            badhh = False
+
+        if badhh:
+            ksym = "{}".format(hex(k.ip))
+            if ksym == "0xffffff80081dc338L":
+                ksym = "add_to_page_cache_lru"
+            elif ksym == "0xffffff80081e9758L":
+                ksym = "account_page_dirtied"
+            elif ksym == "0xffffff8008294694L":
+                ksym = "mark_buffer_dirty"
+            elif ksym == "0xffffff80081eea10L":
+                ksym = "mark_page_accessed"
+            
+        if re.match('mark_page_accessed', ksym) is not None:
             mpa = max(0, v.value)
 
-        if re.match('mark_buffer_dirty', b.ksym(k.ip)) is not None:
+        if re.match('mark_buffer_dirty', ksym) is not None:
             mbd = max(0, v.value)
 
-        if re.match('add_to_page_cache_lru', b.ksym(k.ip)) is not None:
+        if re.match('add_to_page_cache_lru', ksym) is not None:
             apcl = max(0, v.value)
 
-        if re.match('account_page_dirtied', b.ksym(k.ip)) is not None:
+        if re.match('account_page_dirtied', ksym) is not None:
             apd = max(0, v.value)
 
         # access = total cache access incl. reads(mpa) and writes(mbd)

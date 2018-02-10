@@ -38,7 +38,8 @@ class AdbRemote(shell.ShellRemote):
             cmd = '/data/bpfd'
 
         # HACK: Make it work on hikey 4.9 kernel for demo purpose
-        cmd += ' -k 264519'
+        if os.environ["BAD_HIKEY_DEMO_HACK"]:
+            cmd += ' -k 264519'
 
         self.client.sendline("su")
         self.client.readline()
