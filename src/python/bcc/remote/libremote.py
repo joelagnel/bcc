@@ -249,7 +249,6 @@ class LibRemote(object):
             raw_cb(ct.cast(id(self), ct.py_object), data_bin, ct.c_int(size))
 
     def close_connection(self):
-        self._remote_send_command("exit")
         self.remote.close_connection()
 
 # Test
