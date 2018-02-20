@@ -269,13 +269,8 @@ class BPF(object):
         """
 
         self.libremote = None
-        if "BCC_REMOTE" in os.environ:
-            if "BCC_REMOTE_ARGS" in os.environ:
-                remote_args = os.environ["BCC_REMOTE_ARGS"]
-            else:
-                remote_args = None
-
-            self.libremote = libremote.LibRemote(os.environ["BCC_REMOTE"], remote_args)
+        if BPF._should_run_on_remote_target():
+            self.libremote = BPF._open_connection_to_remote_target()
 
         self.open_kprobes = {}
         self.open_uprobes = {}
@@ -326,6 +321,19 @@ class BPF(object):
         # If any "kprobe__" or "tracepoint__" prefixed functions were defined,
         # they will be loaded and attached here.
         self._trace_autoload()
+
+    @staticmethod
+    def _should_run_on_remote_target():
+        return "BCC_REMOTE" in os.environ
+
+    @staticmethod
+    def _open_connection_to_remote_target():
+        if "BCC_REMOTE_ARGS" in os.environ:
+            remote_args = os.environ["BCC_REMOTE_ARGS"]
+        else:
+            remote_args = None
+
+        return libremote.LibRemote(os.environ["BCC_REMOTE"], remote_args)
 
     def load_funcs(self, prog_type=KPROBE):
         """load_funcs(prog_type=KPROBE)
@@ -423,6 +431,7 @@ class BPF(object):
         u"__int128": ct.c_int64 * 2,
         u"unsigned __int128": ct.c_uint64 * 2,
     }
+
     @staticmethod
     def _decode_table_type(desc):
         if isinstance(desc, basestring):
