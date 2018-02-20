@@ -21,7 +21,6 @@ from bcc import BPF
 from time import sleep, strftime
 import signal
 import re
-import os
 from sys import argv
 
 # signal handler
@@ -137,22 +136,6 @@ while 1:
 
         ksym = b.ksym(k.ip)
 
-        if "BAD_HIKEY_DEMO_HACK" in os.environ:
-            badhh = True
-        else:
-            badhh = False
-
-        if badhh:
-            ksym = "{}".format(hex(k.ip))
-            if ksym == "0xffffff80081dc338L":
-                ksym = "add_to_page_cache_lru"
-            elif ksym == "0xffffff80081e9758L":
-                ksym = "account_page_dirtied"
-            elif ksym == "0xffffff8008294694L":
-                ksym = "mark_buffer_dirty"
-            elif ksym == "0xffffff80081eea10L":
-                ksym = "mark_page_accessed"
-            
         if re.match('mark_page_accessed', ksym) is not None:
             mpa = max(0, v.value)
 
