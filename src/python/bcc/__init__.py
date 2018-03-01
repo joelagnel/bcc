@@ -151,6 +151,8 @@ class BPF(object):
     XDP_PASS = 2
     XDP_TX = 3
 
+    _libremote = None
+
     _probe_repl = re.compile("[^a-zA-Z0-9_]")
     _sym_caches = {}
 
@@ -268,9 +270,8 @@ class BPF(object):
                                    See "Debug flags" for explanation
         """
 
-        self.libremote = None
-        if BPF._should_run_on_remote_target():
-            self.libremote = BPF._open_connection_to_remote_target()
+        if BPF._should_run_on_remote_target() and BPF._libremote is None:
+            BPF._libremote = BPF._open_connection_to_remote_target()
 
         self.open_kprobes = {}
         self.open_uprobes = {}
@@ -363,8 +364,8 @@ class BPF(object):
         license_str = ct.string_at(lib.bpf_module_license(self.module))
         kern_version = lib.bpf_module_kern_version(self.module)
 
-        if self.libremote:
-            remotefd = self.libremote.bpf_prog_load(prog_type, func_name, func_str, license_str,
+        if BPF._libremote:
+            remotefd = BPF._libremote.bpf_prog_load(prog_type, func_name, func_str, license_str,
                                       kern_version)
             if remotefd < 0:
                 raise Exception('Failed to load BPF program from remote')
@@ -375,7 +376,7 @@ class BPF(object):
         elif (self.debug & DEBUG_BPF):
             log_level = 1
 
-        if not self.libremote:
+        if not BPF._libremote:
             fd = lib.bpf_prog_load(prog_type,
                     func_name.encode("ascii"),
                     lib.bpf_function_start(self.module, func_name.encode("ascii")),
@@ -384,7 +385,7 @@ class BPF(object):
                     lib.bpf_module_kern_version(self.module),
                     log_level, None, 0);
 
-        if not self.libremote and fd < 0:
+        if not BPF._libremote and fd < 0:
             atexit.register(self.donothing)
             if ct.get_errno() == errno.EPERM:
                 raise Exception("Need super-user privilges to run")
@@ -393,7 +394,7 @@ class BPF(object):
             raise Exception("Failed to load BPF program %s: %s" %
                             (func_name, errstr))
 
-        if self.libremote:
+        if BPF._libremote:
             fd = remotefd
 
         fn = BPF.Function(self, func_name, fd)
@@ -483,7 +484,7 @@ class BPF(object):
                 raise Exception("Failed to load BPF Table %s leaf desc" % name)
             leaftype = BPF._decode_table_type(json.loads(leaf_desc.decode()))
         return Table(self, map_id, map_fd, keytype, leaftype, reducer=reducer,
-                        libremote=self.libremote)
+                        libremote=BPF._libremote)
 
     def __getitem__(self, key):
         if key not in self.tables:
@@ -508,14 +509,14 @@ class BPF(object):
             self._user_cb(pid, cc)
 
     def _bpf_remote_create_map_cb(self, data):
-        if not self.libremote:
+        if not BPF._libremote:
             return -1
         args = ct.cast(data, ct.POINTER(BpfCreateMapArgs)).contents
         name = args.name
         # name = ct.string_at(args.name)
         if 'BCC_REMOTE_DEBUG' in os.environ and os.environ['BCC_REMOTE_DEBUG'] == '1':
             print("bpf_remote_create_map cb: got map name: {}, type {}\n".format(name, type(name)))
-        ret = self.libremote.bpf_create_map(args.type, name, args.key_size, args.value_size,
+        ret = BPF._libremote.bpf_create_map(args.type, name, args.key_size, args.value_size,
                         args.max_entries, args.map_flags)
         return ret
 
@@ -575,7 +576,7 @@ class BPF(object):
 
         # allow the caller to glob multiple functions together
         if event_re:
-            matches = BPF.get_kprobe_functions(event_re, self.libremote)
+            matches = BPF.get_kprobe_functions(event_re, BPF._libremote)
             self._check_probe_quota(len(matches))
             for line in matches:
                 try:
@@ -590,8 +591,8 @@ class BPF(object):
         ev_name = "p_" + event.replace("+", "_").replace(".", "_")
 
         # TODO: Add support for remote cbs
-        if self.libremote:
-            res = self.libremote.bpf_attach_kprobe(fn.fd, 0, ev_name, event)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_kprobe(fn.fd, 0, ev_name, event)
             if res < 0:
                 raise Exception("Failed to attach BPF to kprobe")
             self._add_kprobe(ev_name, None)
@@ -612,8 +613,8 @@ class BPF(object):
         if ev_name not in self.open_kprobes:
             raise Exception("Kprobe %s is not attached" % event)
 
-        if self.libremote:
-            res = self.libremote.bpf_detach_kprobe(ev_name)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_detach_kprobe(ev_name)
         else:
             lib.perf_reader_free(self.open_kprobes[ev_name])
             res = lib.bpf_detach_kprobe(ev_name.encode("ascii"))
@@ -626,7 +627,7 @@ class BPF(object):
 
         # allow the caller to glob multiple functions together
         if event_re:
-            for line in BPF.get_kprobe_functions(event_re, self.libremote):
+            for line in BPF.get_kprobe_functions(event_re, BPF._libremote):
                 try:
                     self.attach_kretprobe(event=line, fn_name=fn_name)
                 except:
@@ -639,8 +640,8 @@ class BPF(object):
         ev_name = "r_" + event.replace("+", "_").replace(".", "_")
 
         # TODO: Add support for remote cbs
-        if self.libremote:
-            res = self.libremote.bpf_attach_kprobe(fn.fd, 1, ev_name, event)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_kprobe(fn.fd, 1, ev_name, event)
             if res < 0:
                 raise Exception("Failed to attach BPF to kprobe")
             self._add_kprobe(ev_name, None)
@@ -661,8 +662,8 @@ class BPF(object):
         if ev_name not in self.open_kprobes:
             raise Exception("Kretprobe %s is not attached" % event)
 
-        if self.libremote:
-            res = self.libremote.bpf_detach_kprobe(ev_name)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_detach_kprobe(ev_name)
         else:
             lib.perf_reader_free(self.open_kprobes[ev_name])
             res = lib.bpf_detach_kprobe(ev_name.encode("ascii"))
@@ -803,8 +804,8 @@ class BPF(object):
         (tp_category, tp_name) = tp.split(':')
 
         # TODO: Add support for remote cbs
-        if self.libremote:
-            res = self.libremote.bpf_attach_tracepoint(fn.fd, tp_category, tp_name)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_tracepoint(fn.fd, tp_category, tp_name)
             if res < 0:
                 raise Exception("Failed to attach BPF to tracepoint")
             self.open_tracepoints[tp] = None
@@ -963,8 +964,8 @@ class BPF(object):
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("p", path, addr, pid)
 
-        if self.libremote:
-            res = self.libremote.bpf_attach_uprobe(fn.fd, 0, ev_name, path, addr, pid)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_uprobe(fn.fd, 0, ev_name, path, addr, pid)
             if res < 0 :
                 raise Exception("Failed to attach BPF to uprobe")
             self._add_uprobe(ev_name, None)
@@ -992,8 +993,8 @@ class BPF(object):
         if ev_name not in self.open_uprobes:
             raise Exception("Uprobe %s is not attached" % ev_name)
 
-        if self.libremote:
-            res = self.libremote.bpf_detach_uprobe(ev_name)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_detach_uprobe(ev_name)
         else:
             lib.perf_reader_free(self.open_uprobes[ev_name])
             res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
@@ -1025,8 +1026,8 @@ class BPF(object):
         fn = self.load_func(fn_name, BPF.KPROBE)
         ev_name = self._get_uprobe_evname("r", path, addr, pid)
 
-        if self.libremote:
-            res = self.libremote.bpf_attach_uprobe(fn.fd, 1, ev_name, path, addr, pid)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_uprobe(fn.fd, 1, ev_name, path, addr, pid)
             if res < 0 :
                 raise Exception("Failed to attach BPF to uprobe")
             self._add_uprobe(ev_name, None)
@@ -1054,8 +1055,8 @@ class BPF(object):
         if ev_name not in self.open_uprobes:
             raise Exception("Uretprobe %s is not attached" % ev_name)
 
-        if self.libremote:
-            res = self.libremote.bpf_detach_uprobe(ev_name)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_detach_uprobe(ev_name)
         else:
             lib.perf_reader_free(self.open_uprobes[ev_name])
             res = lib.bpf_detach_uprobe(ev_name.encode("ascii"))
@@ -1244,7 +1245,7 @@ class BPF(object):
         cb() that was given in the BPF constructor for each entry.
         """
         try:
-            if self.libremote:
+            if BPF._libremote:
                 fd_callbacks = []
                 for k, v in self.open_kprobes.iteritems():
                     # Only support polling for per-cpu perf buffer kprobes
@@ -1256,7 +1257,7 @@ class BPF(object):
                         cbs = t_obj._cbs[cpu]
                         fd_callbacks.append((v, cbs))
                 if fd_callbacks:
-                    self.libremote.perf_reader_poll(fd_callbacks, timeout)
+                    BPF._libremote.perf_reader_poll(fd_callbacks, timeout)
                 return
 
             readers = (ct.c_void_p * len(self.open_kprobes))()
@@ -1274,8 +1275,8 @@ class BPF(object):
         for k, v in list(self.open_kprobes.items()):
             # non-string keys here include the perf_events reader
             if isinstance(k, str):
-                if self.libremote:
-                    res = self.libremote.bpf_detach_kprobe(k)
+                if BPF._libremote:
+                    res = BPF._libremote.bpf_detach_kprobe(k)
                 else:
                     lib.perf_reader_free(v)
                     lib.bpf_detach_kprobe(str(k).encode("ascii"))
@@ -1286,8 +1287,8 @@ class BPF(object):
             if isinstance(self.tables[key], PerfEventArray):
                 del self.tables[key]
         for k, v in list(self.open_uprobes.items()):
-            if self.libremote:
-                res = self.libremote.bpf_detach_uprobe(k)
+            if BPF._libremote:
+                res = BPF._libremote.bpf_detach_uprobe(k)
             else:
                 lib.perf_reader_free(v)
                 lib.bpf_detach_uprobe(str(k).encode("ascii"))
