@@ -248,6 +248,17 @@ class LibRemote(object):
             # TODO: implement lost cbs too
             raw_cb(ct.cast(id(self), ct.py_object), data_bin, ct.c_int(size))
 
+    def ksym(self, addr):
+        cmd = "GET_KSYM_NAME {} 0".format(addr)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return None, addr, None
+        else:
+            name, offset, module = ret[1][1].split(";")
+            return name, offset, module
+
     def close_connection(self):
         self.remote.close_connection()
 
