@@ -748,7 +748,7 @@ class BPF(object):
         """
         libr = libremote.LibRemote(remote)
         ret = BPF.get_tracepoints_libremote(tp_re, libr)
-        self.libremote.close_connection()
+        libr.close_connection()
         return ret
 
     @staticmethod
