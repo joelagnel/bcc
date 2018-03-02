@@ -1216,7 +1216,10 @@ class BPF(object):
 
         Translate a kernel name into an address. This is the reverse of
         ksym. Returns -1 when the function name is unknown."""
-        return BPF._sym_cache(-1).resolve_name(None, name)
+        if BPF._libremote:
+            return BPF._libremote.ksymname(name)
+        else:
+            return BPF._sym_cache(-1).resolve_name(None, name)
 
     def num_open_kprobes(self):
         """num_open_kprobes()

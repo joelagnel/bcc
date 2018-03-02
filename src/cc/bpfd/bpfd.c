@@ -686,6 +686,20 @@ int main(int argc, char **argv)
 			printf("GET_KSYM_NAME: ret=%d\n", ret);
 			if (!ret)
 				printf("%s;%"PRIu64";%s\n", sym.name, sym.offset, sym.module);
+		} else if (!strcmp(cmd, "GET_KSYM_ADDR")) {
+			int len, ret;
+			char* name;
+			uint64_t addr;
+
+			PARSE_FIRST_STR(name);
+
+			if(!ksym_cache)
+				ksym_cache = bcc_symcache_new(-1, NULL);
+
+			ret = bcc_symcache_resolve_name(ksym_cache, NULL, name, &addr);
+			printf("GET_KSYM_ADDR: ret=%d\n", ret);
+			if (!ret)
+				printf("%"PRIu64"\n", addr);
 		} else {
 
 invalid_command:

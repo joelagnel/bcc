@@ -259,6 +259,17 @@ class LibRemote(object):
             name, offset, module = ret[1][1].split(";")
             return name, offset, module
 
+    def ksymname(self, name):
+        cmd = "GET_KSYM_ADDR {} 0".format(name)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return -1
+        else:
+            addr = ret[1][1]
+            return addr
+
     def close_connection(self):
         self.remote.close_connection()
 
