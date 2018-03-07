@@ -1185,8 +1185,8 @@ class BPF(object):
         Example output when both show_module and show_offset are False:
             "start_thread"
         """
-        if BPF._libremote and pid == -1:
-            name, offset, module = BPF._libremote.ksym(addr)
+        if BPF._libremote:
+            name, offset, module = BPF._libremote.sym(pid, addr, demangle)
         else:
             name, offset, module = BPF._sym_cache(pid).resolve(addr, demangle)
         offset = "+0x%x" % offset if show_offset and name is not None else ""
