@@ -29,6 +29,7 @@
 
 #include "bpfd.h"
 #include "bcc_syms.h"
+#include "bpfd_syms.h"
 
 #define LINEBUF_SIZE  2000000
 #define LINE_TOKENS   10
@@ -336,7 +337,7 @@ int main(int argc, char **argv)
 	char line_buf[LINEBUF_SIZE];
 	char *cmd, *lineptr, *argstr, *tok, *kvers_str = NULL;
 	int len, c, kvers = -1;
-	void *ksym_cache = NULL;
+	void *sym_resolver = NULL;
 
 	opterr = 0;
 	while ((c = getopt (argc, argv, "k:")) != -1)
@@ -679,10 +680,10 @@ int main(int argc, char **argv)
 
 			PARSE_FIRST_UINT64(addr);
 
-			if(!ksym_cache)
-				ksym_cache = bcc_symcache_new(-1, NULL);
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
 
-			ret = bcc_symcache_resolve_no_demangle(ksym_cache, addr, &sym);
+			ret = bpfd_syms_resolve_addr_no_demangle(sym_resolver, -1, addr, &sym);
 			printf("GET_KSYM_NAME: ret=%d\n", ret);
 			if (!ret)
 				printf("%s;%"PRIu64";%s\n", sym.name, sym.offset, sym.module);
@@ -693,10 +694,10 @@ int main(int argc, char **argv)
 
 			PARSE_FIRST_STR(name);
 
-			if(!ksym_cache)
-				ksym_cache = bcc_symcache_new(-1, NULL);
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
 
-			ret = bcc_symcache_resolve_name(ksym_cache, NULL, name, &addr);
+			ret = bpfd_syms_resolve_name(sym_resolver, -1, NULL, name, &addr);
 			printf("GET_KSYM_ADDR: ret=%d\n", ret);
 			if (!ret)
 				printf("%"PRIu64"\n", addr);
@@ -705,18 +706,18 @@ int main(int argc, char **argv)
 			uint64_t addr;
 			struct bcc_symbol sym;
 			const char *name;
-			void *usym_cache = NULL;
 
 			PARSE_FIRST_INT(pid);
 			PARSE_UINT64(addr);
 			PARSE_INT(demangle);
 
-			usym_cache = bcc_symcache_new(pid, NULL);
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
 
 			if (demangle)
-				ret = bcc_symcache_resolve(usym_cache, addr, &sym);
+				ret = bpfd_syms_resolve_addr(sym_resolver, pid, addr, &sym);
 			else
-				ret = bcc_symcache_resolve_no_demangle(usym_cache, addr, &sym);
+				ret = bpfd_syms_resolve_addr_no_demangle(sym_resolver, pid, addr, &sym);
 
 			printf("GET_USYM_NAME: ret=%d\n", ret);
 			if (!ret) {
@@ -732,15 +733,15 @@ int main(int argc, char **argv)
 			char *name;
 			char *module;
 			uint64_t addr;
-			void *usym_cache = NULL;
 
 			PARSE_FIRST_INT(pid);
 			PARSE_STR(name);
 			PARSE_STR(module);
 
-			usym_cache = bcc_symcache_new(pid, NULL);
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
 
-			ret = bcc_symcache_resolve_name(usym_cache, module, name, &addr);
+			ret = bpfd_syms_resolve_name(sym_resolver, pid, module, name, &addr);
 			printf("GET_USYM_ADDR: ret=%d\n", ret);
 			if (!ret)
 				printf("%"PRIu64"\n", addr);
