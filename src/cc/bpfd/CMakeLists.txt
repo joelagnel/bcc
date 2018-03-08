@@ -3,3 +3,4 @@
 
 add_executable(bpfd bpfd.c base64.c remote_perf_reader.c utils.c)
 target_link_libraries(bpfd bpf-static)
+target_link_libraries(bpfd bcc-static)
