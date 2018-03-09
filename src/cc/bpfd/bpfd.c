@@ -28,6 +28,8 @@
 #include <arpa/inet.h>
 
 #include "bpfd.h"
+#include "bcc_syms.h"
+#include "bpfd_syms.h"
 
 #define LINEBUF_SIZE  2000000
 #define LINE_TOKENS   10
@@ -335,6 +337,7 @@ int main(int argc, char **argv)
 	char line_buf[LINEBUF_SIZE];
 	char *cmd, *lineptr, *argstr, *tok, *kvers_str = NULL;
 	int len, c, kvers = -1;
+	void *sym_resolver = NULL;
 
 	opterr = 0;
 	while ((c = getopt (argc, argv, "k:")) != -1)
@@ -670,6 +673,78 @@ int main(int argc, char **argv)
 			ret = remote_perf_reader_poll(fds, len, timeout);
 			if (ret < 0)
 				printf("perf_reader_poll: ret=%d\n", ret);
+		} else if (!strcmp(cmd, "GET_KSYM_NAME")) {
+			int len, ret;
+			uint64_t addr;
+			struct bcc_symbol sym;
+
+			PARSE_FIRST_UINT64(addr);
+
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
+
+			ret = bpfd_syms_resolve_addr_no_demangle(sym_resolver, -1, addr, &sym);
+			printf("GET_KSYM_NAME: ret=%d\n", ret);
+			if (!ret)
+				printf("%s;%"PRIu64";%s\n", sym.name, sym.offset, sym.module);
+		} else if (!strcmp(cmd, "GET_KSYM_ADDR")) {
+			int len, ret;
+			char* name;
+			uint64_t addr;
+
+			PARSE_FIRST_STR(name);
+
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
+
+			ret = bpfd_syms_resolve_name(sym_resolver, -1, NULL, name, &addr);
+			printf("GET_KSYM_ADDR: ret=%d\n", ret);
+			if (!ret)
+				printf("%"PRIu64"\n", addr);
+		} else if (!strcmp(cmd, "GET_USYM_NAME")) {
+			int len, ret, pid, demangle;
+			uint64_t addr;
+			struct bcc_symbol sym;
+			const char *name;
+
+			PARSE_FIRST_INT(pid);
+			PARSE_UINT64(addr);
+			PARSE_INT(demangle);
+
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
+
+			if (demangle)
+				ret = bpfd_syms_resolve_addr(sym_resolver, pid, addr, &sym);
+			else
+				ret = bpfd_syms_resolve_addr_no_demangle(sym_resolver, pid, addr, &sym);
+
+			printf("GET_USYM_NAME: ret=%d\n", ret);
+			if (!ret) {
+				if (demangle)
+					name = sym.demangle_name;
+				else
+					name = sym.name;
+				printf("%s;%"PRIu64";%s\n", name, sym.offset, sym.module);
+			}
+			bcc_symbol_free_demangle_name(&sym);
+		} else if (!strcmp(cmd, "GET_USYM_ADDR")) {
+			int len, ret, pid;
+			char *name;
+			char *module;
+			uint64_t addr;
+
+			PARSE_FIRST_INT(pid);
+			PARSE_STR(name);
+			PARSE_STR(module);
+
+			if(!sym_resolver)
+				sym_resolver = bpfd_syms_create_symresolver();
+
+			ret = bpfd_syms_resolve_name(sym_resolver, pid, module, name, &addr);
+			printf("GET_USYM_ADDR: ret=%d\n", ret);
+			if (!ret)
+				printf("%"PRIu64"\n", addr);
 		} else {
 
 invalid_command:
