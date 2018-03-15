@@ -23,14 +23,23 @@ class RemoteTests(TestCase, ToolTestRunner):
     def test_biolatency(self):
         self.run_with_duration("biolatency.py 1 1")
 
+    def test_cachestat(self):
+        self.run_with_duration("cachestat.py 1 1")
+
     def test_filetop(self):
         self.run_with_duration("filetop.py 1 1")
 
     def test_hardirqs(self):
         self.run_with_duration("hardirqs.py 1 1")
 
+    def test_offcputime(self):
+        self.run_with_duration("offcputime.py 1")
+
     def test_opensnoop(self):
         self.run_with_int("opensnoop.py")
+
+    def test_stackcount(self):
+        self.run_with_int("stackcount.py __kmalloc -i 1")
 
 if __name__ == "__main__":
     main()
