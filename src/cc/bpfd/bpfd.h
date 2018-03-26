@@ -20,8 +20,8 @@
 #include <inttypes.h>
 
 #include "utils.h"
-#include "libbpf.h"
 #include "base64.h"
+#include "libbpf.h"
 
 #define PARSE_INT(var)				\
 	tok = strtok(NULL, " ");		\
@@ -71,6 +71,11 @@
 #define PARSE_FIRST_UINT(var)		\
 	PARSE_FIRST_TOK					\
 	if (!sscanf(tok, "%u ", &var))	\
+		goto invalid_command;
+
+#define PARSE_FIRST_UINT64(var)		\
+	PARSE_FIRST_TOK					\
+	if (!sscanf(tok, "%"SCNu64" ", &var))	\
 		goto invalid_command;
 
 #define PARSE_FIRST_STR(var)		\

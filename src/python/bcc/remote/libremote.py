@@ -248,6 +248,56 @@ class LibRemote(object):
             # TODO: implement lost cbs too
             raw_cb(ct.cast(id(self), ct.py_object), data_bin, ct.c_int(size))
 
+    def sym(self, pid, addr, demangle=True):
+        if pid < 0:
+            return self.ksym(addr)
+        else:
+            return self.usym(pid, addr, demangle)
+
+    def ksym(self, addr):
+        cmd = "GET_KSYM_NAME {} 0".format(addr)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return None, addr, None
+        else:
+            name, offset, module = ret[1][1].split(";")
+            return name, offset, module
+
+    def ksymname(self, name):
+        cmd = "GET_KSYM_ADDR {} 0".format(name)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return -1
+        else:
+            addr = ret[1][1]
+            return addr
+
+    def usym(self, pid, addr, demangle=True):
+        cmd = "GET_USYM_NAME {} {} {}".format(pid, addr, 1 if demangle else 0)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return None, addr, None
+        else:
+            name, offset, module = ret[1][1].split(";")
+            return name, offset, module
+
+    def usymname(self, pid, name, module):
+        cmd = "GET_USYM_ADDR {} {} {}".format(pid, name, module)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return -1
+        else:
+            addr = ret[1][1]
+            return addr
+
     def close_connection(self):
         self._remote_send_command("exit")
         self.remote.close_connection()
