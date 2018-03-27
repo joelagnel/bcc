@@ -588,12 +588,14 @@ class PerfEventArray(ArrayBase):
         key_id = (id(self), key)
         if key_id in self.bpf.open_kprobes:
             # The key is opened for perf ring buffer
-            lib.perf_reader_free(self.bpf.open_kprobes[key_id])
+            if self.libremote is None:
+                lib.perf_reader_free(self.bpf.open_kprobes[key_id])
             self.bpf._del_kprobe(key_id)
             del self._cbs[key]
         else:
             # The key is opened for perf event read
-            lib.bpf_close_perf_event_fd(self._open_key_fds[key])
+            if self.libremote is None:
+                lib.bpf_close_perf_event_fd(self._open_key_fds[key])
         del self._open_key_fds[key]
 
     def open_perf_buffer(self, callback, page_cnt=8, lost_cb=None):
