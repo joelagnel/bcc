@@ -841,8 +841,12 @@ class BPF(object):
 
     def _attach_perf_event(self, progfd, ev_type, ev_config,
             sample_period, sample_freq, pid, cpu, group_fd):
-        res = lib.bpf_attach_perf_event(progfd, ev_type, ev_config,
-                sample_period, sample_freq, pid, cpu, group_fd)
+        if BPF._libremote:
+            res = BPF._libremote.bpf_attach_perf_event(progfd, ev_type,
+                    ev_config, sample_period, sample_freq, pid, cpu, group_fd)
+        else:
+            res = lib.bpf_attach_perf_event(progfd, ev_type, ev_config,
+                    sample_period, sample_freq, pid, cpu, group_fd)
         if res < 0:
             raise Exception("Failed to attach BPF to perf event")
         return res
