@@ -298,6 +298,13 @@ class LibRemote(object):
             addr = ret[1][1]
             return addr
 
+    def bpf_attach_perf_event(self, progfd, ev_type, ev_config, sample_period,
+                              sample_freq, pid, cpu, group_fd):
+        cmd = "BPF_ATTACH_PERF_EVENT {} {} {} {} {} {} {} {}".format(progfd,
+                    ev_type, ev_config, sample_period, sample_freq, pid, cpu, group_fd)
+        ret = self._remote_send_command(cmd)
+        return ret[0]
+
     def close_connection(self):
         self._remote_send_command("exit")
         self.remote.close_connection()
