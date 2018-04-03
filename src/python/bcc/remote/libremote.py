@@ -52,6 +52,9 @@ class LibRemote(object):
             print('Command not recognized! cmd: {}'.format(cmd))
             return (-1, [])
 
+        if ret[0].startswith('Open failed, ignoring'):
+            return (-1, [])
+
         # Assume success if first list element doesn't have ret=
         if not 'ret=' in ret[0]:
             return (0, ret)
