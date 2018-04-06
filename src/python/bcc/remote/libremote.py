@@ -91,6 +91,17 @@ class LibRemote(object):
         ret = self._remote_send_command(cmd)
         return ret[0] if ret[0] < 0 else ret[1]
 
+    def comm_for_pid(self, pid):
+        cmd = "COMM_FOR_PID {}".format(pid)
+        ret = self._remote_send_command(cmd)
+
+        ret_code = ret[0]
+        if ret_code < 0:
+            return "[unknown]"
+        else:
+            comm = ret[1][0]
+            return comm
+
     def bpf_attach_tracepoint(self, fd, cat, tpname):
         cmd = "BPF_ATTACH_TRACEPOINT {} {} {}".format(fd, cat, tpname)
         ret = self._remote_send_command(cmd)

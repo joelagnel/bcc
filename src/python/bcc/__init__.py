@@ -254,6 +254,16 @@ class BPF(object):
                     return exe_file
         return None
 
+    @staticmethod
+    def comm_for_pid(pid):
+        if BPF._libremote:
+            return BPF._libremote.comm_for_pid(pid)
+        else:
+            try:
+                return open("/proc/%d/comm" % pid).read().strip()
+            except Exception:
+                return "[unknown]"
+
     def __init__(self, src_file="", hdr_file="", text=None, cb=None, debug=0,
             cflags=[], usdt_contexts=[]):
         """Create a new BPF module with the given source code.
