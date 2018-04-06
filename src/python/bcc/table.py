@@ -152,7 +152,7 @@ def Table(bpf, map_id, map_fd, keytype, leaftype, **kwargs):
 
 class TableBase(MutableMapping):
 
-    def __init__(self, bpf, map_id, map_fd, keytype, leaftype):
+    def __init__(self, bpf, map_id, map_fd, keytype, leaftype, libremote=None):
         self.bpf = bpf
         self.map_id = map_id
         self.map_fd = map_fd
@@ -161,7 +161,7 @@ class TableBase(MutableMapping):
         self.ttype = lib.bpf_table_type_id(self.bpf.module, self.map_id)
         self.flags = lib.bpf_table_flags_id(self.bpf.module, self.map_id)
         self._cbs = {}
-        self.libremote = None
+        self.libremote = libremote
 
     def key_sprintf(self, key):
         buf = ct.create_string_buffer(ct.sizeof(self.Key) * 8)
