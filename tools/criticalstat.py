@@ -51,18 +51,18 @@ elif args.preemptoff:
 debugfs_path = subprocess.Popen ("cat /proc/mounts | grep -w debugfs" +
     " | awk '{print $2}'",
     shell=True,
-    stdout=subprocess.PIPE).stdout.read().split("\n")[0]
+    stdout=subprocess.PIPE).stdout.read().split(b"\n")[0]
 
 if debugfs_path == "":
     print("ERROR: Unable to find debugfs mount point");
     sys.exit(0);
 
-trace_path = debugfs_path + "/tracing/events/preemptirq/";
+trace_path = debugfs_path + b"/tracing/events/preemptirq/";
 
-if (not os.path.exists(trace_path + "irq_disable") or
-   not os.path.exists(trace_path + "irq_enable") or
-   not os.path.exists(trace_path + "preempt_disable") or
-   not os.path.exists(trace_path + "preempt_enable")):
+if (not os.path.exists(trace_path + b"irq_disable") or
+   not os.path.exists(trace_path + b"irq_enable") or
+   not os.path.exists(trace_path + b"preempt_disable") or
+   not os.path.exists(trace_path + b"preempt_enable")):
     print("ERROR: required tracing events are not available\n" +
         "Make sure the kernel is built with CONFIG_DEBUG_PREEMPT " +
         "and CONFIG_PREEMPTIRQ_EVENTS enabled. Also please disable " +
