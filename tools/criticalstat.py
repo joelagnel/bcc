@@ -89,7 +89,7 @@ struct start_data {
 
 struct data_t {
     u64 time;
-    u64 stack_id;
+    s64 stack_id;
     u32 cpu;
     u64 id;
     u32 addrs[4];   /* indexed by addr_offs */
@@ -276,7 +276,7 @@ TASK_COMM_LEN = 16    # linux/sched.h
 class Data(ct.Structure):
     _fields_ = [
         ("time", ct.c_ulonglong),
-        ("stack_id", ct.c_ulonglong),
+        ("stack_id", ct.c_longlong),
         ("cpu", ct.c_int),
         ("id", ct.c_ulonglong),
         ("addrs", ct.c_int * 4),
@@ -310,17 +310,14 @@ def print_event(cpu, data, size):
         print("Section start: {} -> {}".format(b.ksym(stext + event.addrs[0]), b.ksym(stext + event.addrs[1])))
         print("Section end:   {} -> {}".format(b.ksym(stext + event.addrs[2]), b.ksym(stext + event.addrs[3])))
 
-        if event.stack_id < 16384:
-            kstack = stack_traces.walk(event.stack_id)
-            syms = get_syms(kstack)
-            if not syms:
-                return
+        kstack = stack_traces.walk(event.stack_id)
+        syms = get_syms(kstack)
+        if not syms:
+            return
 
-            for s in syms:
-                print("  ", end="")
-                print("%s" % s)
-        else:
-            print("NO STACK FOUND DUE TO COLLISION")
+        for s in syms:
+            print("  ", end="")
+            print("%s" % s)
         print("===================================")
         print("")
     except:
