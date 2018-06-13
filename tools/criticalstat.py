@@ -305,7 +305,7 @@ def print_event(cpu, data, size):
             return
 
         print("===================================")
-        print("TASK: %s (pid %5d tid %5d) Total Time: %-9.3fus\n\n" % (event.comm.decode(), \
+        print("TASK: %s (pid %5d tid %5d) Total Time: %-9.3fus\n\n" % (event.comm, \
             (event.id >> 32), (event.id & 0xffffffff), float(event.time) / 1000), end="")
         print("Section start: {} -> {}".format(b.ksym(stext + event.addrs[0]), b.ksym(stext + event.addrs[1])))
         print("Section end:   {} -> {}".format(b.ksym(stext + event.addrs[2]), b.ksym(stext + event.addrs[3])))
