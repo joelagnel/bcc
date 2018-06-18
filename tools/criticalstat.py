@@ -51,18 +51,18 @@ elif args.preemptoff:
 debugfs_path = subprocess.Popen ("cat /proc/mounts | grep -w debugfs" +
     " | awk '{print $2}'",
     shell=True,
-    stdout=subprocess.PIPE).stdout.read().split("\n")[0]
+    stdout=subprocess.PIPE).stdout.read().split(b"\n")[0]
 
 if debugfs_path == "":
     print("ERROR: Unable to find debugfs mount point");
     sys.exit(0);
 
-trace_path = debugfs_path + "/tracing/events/preemptirq/";
+trace_path = debugfs_path + b"/tracing/events/preemptirq/";
 
-if (not os.path.exists(trace_path + "irq_disable") or
-   not os.path.exists(trace_path + "irq_enable") or
-   not os.path.exists(trace_path + "preempt_disable") or
-   not os.path.exists(trace_path + "preempt_enable")):
+if (not os.path.exists(trace_path + b"irq_disable") or
+   not os.path.exists(trace_path + b"irq_enable") or
+   not os.path.exists(trace_path + b"preempt_disable") or
+   not os.path.exists(trace_path + b"preempt_enable")):
     print("ERROR: required tracing events are not available\n" +
         "Make sure the kernel is built with CONFIG_DEBUG_PREEMPT " +
         "and CONFIG_PREEMPTIRQ_EVENTS enabled. Also please disable " +
@@ -89,7 +89,7 @@ struct start_data {
 
 struct data_t {
     u64 time;
-    u64 stack_id;
+    s64 stack_id;
     u32 cpu;
     u64 id;
     u32 addrs[4];   /* indexed by addr_offs */
@@ -276,7 +276,7 @@ TASK_COMM_LEN = 16    # linux/sched.h
 class Data(ct.Structure):
     _fields_ = [
         ("time", ct.c_ulonglong),
-        ("stack_id", ct.c_ulonglong),
+        ("stack_id", ct.c_longlong),
         ("cpu", ct.c_int),
         ("id", ct.c_ulonglong),
         ("addrs", ct.c_int * 4),
@@ -305,22 +305,19 @@ def print_event(cpu, data, size):
             return
 
         print("===================================")
-        print("TASK: %s (pid %5d tid %5d) Total Time: %-9.3fus\n\n" % (event.comm.decode(), \
+        print("TASK: %s (pid %5d tid %5d) Total Time: %-9.3fus\n\n" % (event.comm, \
             (event.id >> 32), (event.id & 0xffffffff), float(event.time) / 1000), end="")
         print("Section start: {} -> {}".format(b.ksym(stext + event.addrs[0]), b.ksym(stext + event.addrs[1])))
         print("Section end:   {} -> {}".format(b.ksym(stext + event.addrs[2]), b.ksym(stext + event.addrs[3])))
 
-        if event.stack_id < 16384:
-            kstack = stack_traces.walk(event.stack_id)
-            syms = get_syms(kstack)
-            if not syms:
-                return
+        kstack = stack_traces.walk(event.stack_id)
+        syms = get_syms(kstack)
+        if not syms:
+            return
 
-            for s in syms:
-                print("  ", end="")
-                print("%s" % s)
-        else:
-            print("NO STACK FOUND DUE TO COLLISION")
+        for s in syms:
+            print("  ", end="")
+            print("%s" % s)
         print("===================================")
         print("")
     except:
